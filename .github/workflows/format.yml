@@ -1,0 +1,33 @@
+name: Format
+
+# Checks every file with Prettier, using the project's .prettierrc and .prettierignore.
+
+on:
+  workflow_call:
+    inputs:
+      prettier-version:
+        type: string
+        default: 3.9.10
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Check formatting
+        env:
+          VERSION: ${{ inputs.prettier-version }}
+        run: |
+          [[ -f .prettierrc ]] || { echo "::error::.prettierrc is missing. Copy it from AYCICEK-Labs/prettier."; exit 1; }
+          npx --yes "prettier@$VERSION" --check .

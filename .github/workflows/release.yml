@@ -1,0 +1,31 @@
+name: Release
+
+# release-please: keeps a release pull request open with the next version and CHANGELOG.md.
+# Merging it tags the version and creates the GitHub release. Nothing is published to a registry.
+
+on:
+  workflow_call:
+    inputs:
+      release-type:
+        description: release-please strategy, for example simple or node.
+        type: string
+        default: simple
+    secrets:
+      RELEASE_PLEASE_TOKEN:
+        description: Optional token, so that CI also runs on the release pull request.
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@v5.0.0
+        with:
+          release-type: ${{ inputs.release-type }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}

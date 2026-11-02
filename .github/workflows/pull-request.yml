@@ -1,0 +1,81 @@
+name: Pull request
+
+# Checks a pull request against the AYÇİÇEK Labs rules:
+# every commit and the title follow commitlint, the description keeps every template section.
+
+on:
+  workflow_call:
+    inputs:
+      commitlint-version:
+        description: Version of @commitlint/cli and @commitlint/config-conventional.
+        type: string
+        default: 21.2.4
+
+permissions:
+  contents: read
+
+jobs:
+  commits:
+    name: Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out with history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Install commitlint and the shared configuration
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSION: ${{ inputs.commitlint-version }}
+        run: |
+          npm install --no-save --no-package-lock --no-audit --no-fund --ignore-scripts \
+            "@commitlint/cli@$VERSION" "@commitlint/config-conventional@$VERSION"
+          curl -fsSL https://raw.githubusercontent.com/AYCICEK-Labs/commitlint/main/commitlint.config.mjs \
+            -o commitlint.config.mjs
+
+      - name: Check every commit
+        env:
+          FROM: ${{ github.event.pull_request.base.sha }}
+          TO: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          "$RUNNER_TEMP/node_modules/.bin/commitlint"
+          --config "$RUNNER_TEMP/commitlint.config.mjs"
+          --from "$FROM" --to "$TO" --verbose
+
+      - name: Check the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: >-
+          printf '%s\n' "$TITLE" |
+          "$RUNNER_TEMP/node_modules/.bin/commitlint"
+          --config "$RUNNER_TEMP/commitlint.config.mjs" --verbose
+
+  description:
+    name: Description
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the template sections and attribution
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          body="$(printf '%s' "$BODY" | tr -d '\r')"
+          status=0
+          for heading in "## Summary" "## How to test" "## Breaking changes" "## Checklist"; do
+            if ! grep -qxF "$heading" <<<"$body"; then
+              echo "::error::The description has no \"$heading\" section. Use the pull request template."
+              status=1
+            fi
+          done
+          if grep -qiE 'co-authored-by:.*(claude|anthropic)|noreply@anthropic\.com|claude\.ai/code/session|generated with \[?claude' <<<"$body"; then
+            echo "::error::The description contains AI attribution."
+            status=1
+          fi
+          exit "$status"

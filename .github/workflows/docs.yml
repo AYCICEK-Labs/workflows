@@ -1,0 +1,62 @@
+name: Docs
+
+# Project memory in docs/ is bilingual: every NAME.en.md has a NAME.tr.md and both change together.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  pairs:
+    name: Bilingual pairs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out with history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check that every document has both languages
+        run: |
+          shopt -s globstar nullglob
+          status=0
+          for file in docs/**/*.md; do
+            case "$file" in
+              *.en.md) pair="${file%.en.md}.tr.md" ;;
+              *.tr.md) pair="${file%.tr.md}.en.md" ;;
+              *)
+                echo "::error file=$file::Documents in docs/ are named NAME.en.md and NAME.tr.md."
+                status=1
+                continue
+                ;;
+            esac
+            if [[ ! -f "$pair" ]]; then
+              echo "::error file=$file::$pair is missing."
+              status=1
+            fi
+          done
+          exit "$status"
+
+      - name: Check that both languages change together
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed="$(git diff --name-only "$BASE...$HEAD" -- 'docs/**.md' 'docs/*.md')"
+          status=0
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            case "$file" in
+              *.en.md) pair="${file%.en.md}.tr.md" ;;
+              *.tr.md) pair="${file%.tr.md}.en.md" ;;
+              *) continue ;;
+            esac
+            if ! grep -qxF "$pair" <<<"$changed"; then
+              echo "::error file=$file::$file changed but $pair did not."
+              status=1
+            fi
+          done <<<"$changed"
+          exit "$status"

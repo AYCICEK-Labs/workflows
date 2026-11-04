@@ -1,0 +1,41 @@
+name: Rust
+
+# Toolchain from rust-toolchain.toml, then formatting, Clippy and tests.
+# A project with private Git dependencies passes a token that can read them.
+
+on:
+  workflow_call:
+    secrets:
+      cargo_git_token:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install the toolchain from rust-toolchain.toml
+        run: cargo --version
+
+      - name: Give Cargo access to private dependencies
+        env:
+          TOKEN: ${{ secrets.cargo_git_token }}
+        run: |
+          [[ -n "$TOKEN" ]] || exit 0
+          git config --global url."https://x-access-token:$TOKEN@github.com/".insteadOf https://github.com/
+          echo 'CARGO_NET_GIT_FETCH_WITH_CLI=true' >> "$GITHUB_ENV"
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked

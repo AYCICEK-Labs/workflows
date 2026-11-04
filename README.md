@@ -8,6 +8,7 @@ Reusable GitHub Actions workflows for AYÇİÇEK Labs projects. Simple standards
 | `docs.yml`         | Every document in `docs/` has an `.en.md` and a `.tr.md` file, and a pull request changes both.                                                                                         |
 | `format.yml`       | Every file follows the project's `.prettierrc` from [`prettier`](https://github.com/AYCICEK-Labs/prettier).                                                                             |
 | `node.yml`         | Node projects: version from `.nvmrc`, `npm ci`, then `lint`, `test` and `build` when the scripts exist.                                                                                 |
+| `rust.yml`         | Rust projects: toolchain from `rust-toolchain.toml`, then `cargo fmt`, Clippy with warnings as errors, and tests.                                                                       |
 | `release.yml`      | Optional: [release-please](https://github.com/googleapis/release-please) keeps a release pull request with the next version and `CHANGELOG.md`.                                         |
 
 ## Versions
@@ -45,7 +46,16 @@ jobs:
     uses: AYCICEK-Labs/workflows/.github/workflows/node.yml@v1
 ```
 
-Leave out `node` in projects without a `package.json`. `edited` runs the checks again when the pull request title or description changes.
+Leave out `node` in projects without a `package.json`. Rust projects use `rust` instead:
+
+```yaml
+rust:
+  uses: AYCICEK-Labs/workflows/.github/workflows/rust.yml@v1
+```
+
+A Rust project with private Git dependencies passes a token that can read them, as `secrets: { cargo_git_token: ${{ secrets.NAME }} }`.
+
+`edited` runs the checks again when the pull request title or description changes.
 
 ### Releases
 
